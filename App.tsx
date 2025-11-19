@@ -12,6 +12,7 @@ export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
+  const [message, setMessage] = useState(""); // For success/error messages
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -20,6 +21,10 @@ export default function App() {
     });
     supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
+      if (!session?.user) {
+        setMessage("Logged out successfully!"); // Show on logout
+        setTimeout(() => setMessage(""), 3000); // Auto-hide
+      }
     });
   }, []);
 
@@ -32,9 +37,20 @@ export default function App() {
     }
   };
 
-  const signOut = () => supabase.auth.signOut();
+  const signOut = async () => {
+    console.log("Sign out clicked! Current user:", user?.email); // Debug log
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      setMessage("Logging out...");
+    } catch (error) {
+      console.error("Sign out error:", error);
+      setMessage("Sign out failed—try again!");
+      setTimeout(() => setMessage(""), 3000);
+    }
+  };
 
-  if (loading) return <div className="flex min-h-screen items-center justify-center text-4xl">Loading…</div>;
+  if (loading) return <div className="flex min-h-screen items-center justify-center text-4xl">Loading...</div>;
 
   return user ? (
     // LOGGED IN DASHBOARD
@@ -43,7 +59,11 @@ export default function App() {
         <h1 className="text-6xl font-bold mb-8">Welcome back!</h1>
         <p className="text-3xl text-green-600 mb-4">FamilyShare is 100% LIVE</p>
         <p className="text-2xl mb-10">Logged in as <strong>{user.email}</strong></p>
-        <button onClick={signOut} className="bg-red-600 hover:bg-red-700 text-white px-12 py-6 rounded-2xl text-2xl font-bold">
+        {message && <p className="text-xl mb-4 text-red-600">{message}</p>}
+        <button 
+          onClick={signOut} 
+          className="cursor-pointer bg-red-600 hover:bg-red-700 text-white px-12 py-6 rounded-2xl text-2xl font-bold transition-colors"
+        >
           Sign Out
         </button>
       </div>
@@ -70,6 +90,8 @@ export default function App() {
             {isLogin ? "No account? Sign up" : "Have account? Log in"}
           </button>
         </div>
+
+        {message && <p className="mt-4 text-green-600 font-bold">{message}</p>}
 
         <p className="mt-20 text-gray-600 text-lg">Built with love • 2025 • Zero surveillance</p>
       </div>
