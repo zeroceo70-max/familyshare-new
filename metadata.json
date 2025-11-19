@@ -1,0 +1,7 @@
+{
+  "name": "FamilyShare - Consent-Based Family Safety",
+  "description": "A 100% consent-based family locator and safety tool. FamilyShare helps you stay connected with your loved ones through ethical location sharing, check-in requests, and public safety alerts, all while putting privacy and consent first.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
