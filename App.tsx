@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { LogOut, Menu, MapPin, Bell, Users, Shield } from "lucide-react";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL!,
@@ -9,65 +10,41 @@ const supabase = createClient(
 export default function App() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
-
-  // Auth form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [dob, setDob] = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setUser(data.session?.user ?? null);
-      if (data.session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", data.session.user.id)
-          .single();
-        setProfile(profile);
-      }
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) fetchProfile(session.user.id);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single();
-        setProfile(profile);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
+      if (session?.user) fetchProfile(session.user.id);
+      else setProfile linearized(null);
     });
 
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  const fetchProfile = async (id: string) => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", id).single();
+    setProfile(data);
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (isLogin) {
-        await supabase.auth.signInWithPassword({ email, password });
-      } else {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        if (data.user) {
-          await supabase.from("profiles").insert({
-            id: data.user.id,
-            first_name: firstName,
-            last_name: lastName,
-            date_of_birth: dob,
-          });
-        }
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+        alert("Check your email for confirmation link!");
       }
       setShowAuth(false);
     } catch (err: any) {
@@ -75,118 +52,92 @@ export default function App() {
     }
   };
 
-  const signOut = () => supabase.auth.signOut();
-
-  if (loading) return null;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
     <>
       {/* Header */}
-      <header className="absolute top-0 right-0 p-6">
-        {user ? (
-          <div className="flex items-center gap-4">
-            <span className="text-lg font-medium">
-              Welcome, {profile?.first_name || "User"}!
-            </span>
-            <button
-              onClick={signOut}
-              className="rounded-lg bg-red-600 px-5 py-2 text-white font-medium hover:bg-red-700"
-            >
-              Sign Out
-            </button>
-          </div>
-        ) : (
-          <div className="flex gap-4">
-            <button
-              onClick={() => { setIsLogin(true); setShowAuth(true); }}
-              className="text-blue-600 font-medium hover:underline"
-            >
-              Log In
-            </button>
-            <button
-              onClick={() => { setIsLogin(false); setShowAuth(true); }}
-              className="rounded-lg bg-blue-600 px-6 py-2 text-white font-medium hover:bg-blue-700"
-            >
-              Sign Up Free
-            </button>
-          </div>
-        )}
+      <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md shadow-lg z-50">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-600 to-green-500 bg-clip-text text-transparent">
+            FamilyShare
+          </h1>
+          {user ? (
+            <div className="flex items-center gap-6">
+              <span className="font-semibold text-lg">Welcome{profile?.first_name ? `, ${profile.first_name}` : ""}!</span>
+              <button onClick={signOut} className="flex items-center gap-2 text-red-600 hover:text-red-700 font-medium">
+                <LogOut size={22} /> Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-6">
+              <button onClick={() => { setIsLogin(true); setShowAuth(true); }} className="text-blue-600 font-bold text-lg hover:underline">
+                Log In
+              </button>
+              <button onClick={() => { setIsLogin(false); setShowAuth(true); }} className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-8 py-3 rounded-full font-bold text-lg shadow-xl hover:shadow-2xl transition">
+                Sign Up Free
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* Main Landing Page */}
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-green-50 px-6 text-center">
-        <h1 className="mb-8 text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-green-500">
-          FamilyShare
-        </h1>
-        <p className="mb-12 text-4xl font-bold text-gray-800">
-          Safety Through Trust and Consent
-        </p>
-        <p className="mb-12 max-w-3xl text-xl text-gray-700">
-          FamilyShare is the privacy-first family safety app. Connect with your loved ones without compromising their privacy. No secret tracking, ever.
-        </p>
+      {/* Logged-out Landing */}
+      {!user ? (
+        <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 pt-32 pb-20 text-center px-6">
+          <h2 className="text-7xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-green-500 mb-8">
+            Safety Through Trust and Consent
+          </h2>
+          <p className="text-2xl text-gray-700 max-w-4xl mx-auto mb-12">
+            FamilyShare is the privacy-first family safety app. Connect with your loved ones without compromising their privacy. No secret tracking, ever.
+          </p>
+          <button onClick={() => setShowAuth(true)} className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-16 py-6 rounded-2xl text-3xl font-bold shadow-2xl hover:shadow-3xl transition">
+            Create Your Family Circle
+          </button>
 
-        <button className="mb-16 rounded-xl bg-gradient-to-r from-blue-600 to-green-600 px-10 py-5 text-2xl font-bold text-white shadow-xl hover:shadow-2xl">
-          Create Your Family Circle
-        </button>
-
-        <h2 className="mb-12 text-4xl font-bold text-gray-800">
-          Ethical Features Designed for Your Peace of Mind
-        </h2>
-
-        <div className="grid max-w-5xl grid-cols-1 gap-10 md:grid-cols-2">
-          <div className="rounded-2xl bg-white p-10 shadow-lg">
-            <h3 className="mb-4 text-2xl font-bold text-blue-600">Consent-Based Sharing</h3>
-            <p className="text-gray-700">
-              Create private Family Circles where every member must accept an invitation. You control who sees your location, and for how long.
-            </p>
+          <h3 className="text-5xl font-bold text-gray-800 mt-32 mb-16">
+            Ethical Features Designed for Your Peace of Mind
+          </h3>
+          <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            {[
+              { title: "Consent-Based Sharing", icon: Shield },
+              { title: "Polite Check-In Requests", icon: Bell },
+              { title: "Public Safety Alerts", icon: MapPin },
+              { title: "Supervised Accounts", icon: Users }
+            ].map(({ title, icon: Icon }) => (
+              <div key={title} className="bg-white p-12 rounded-3xl shadow-2xl hover:shadow-3xl transition text-left flex gap-6">
+                <Icon size={48} className="text-blue-600 flex-shrink-0" />
+                <div>
+                  <h4 className="text-3xl font-bold text-blue-600 mb-3">{title}</h4>
+                  <p className="text-xl text-gray-700">Full control, explicit consent, and transparency at every step.</p>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="rounded-2xl bg-white p-10 shadow-lg">
-            <h3 className="mb-4 text-2xl font-bold text-green-600">Polite Check-In Requests</h3>
-            <p className="text-gray-700">
-              Ask a family member to share their location once or for an hour. They must explicitly approve each request.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-10 shadow-lg">
-            <h3 className="mb-4 text-2xl font-bold text-purple-600">Public Safety Alerts</h3>
-            <p className="text-gray-700">
-              Post and view community alerts for missing persons or pets. Help keep your neighborhood safe together.
-            </p>
-          </div>
-          <div className="rounded-2xl bg-white p-10 shadow-lg">
-            <h3 className="mb-4 text-2xl font-bold text-orange-600">Supervised Accounts</h3>
-            <p className="text-gray-700">
-              For minors under 18, create a supervised account with parental controls, always with the child's active consent and awareness.
-            </p>
-          </div>
+        </main>
+      ) : (
+        /* Logged-in Dashboard – coming in the next message */
+        <div className="pt-32 text-center text-4xl font-bold text-green-600">
+          Welcome to your Family Circle, {profile?.first_name || "User"}!<br />
+          Real-time map + all features coming in 30 seconds…
         </div>
-
-        <footer className="mt-20 text-gray-600">
-          © 2025 FamilyShare. All Rights Reserved. Your privacy is our priority.
-        </footer>
-      </main>
+      )}
 
       {/* Auth Modal */}
       {showAuth && !user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-md rounded-3xl bg-white p-10 shadow-2xl">
-            <h2 className="mb-8 text-3xl font-bold text-center">
-              {isLogin ? "Welcome Back" : "Create Your Account"}
-            </h2>
-            <form onSubmit={handleAuth} className="space-y-5">
-              {!isLogin && (
-                <>
-                  <input placeholder="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} required className="w-full rounded-xl border px-5 py-3" />
-                  <input placeholder="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} required className="w-full rounded-xl border px-5 py-3" />
-                  <input type="date" placeholder="Date of Birth" value={dob} onChange={e => setDob(e.target.value)} required className="w-full rounded-xl border px-5 py-3" />
-                </>
-              )}
-              <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required className="w-full rounded-xl border px-5 py-3" />
-              <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full rounded-xl border px-5 py-3" />
-              <button type="submit" className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-green-600 py-4 text-xl font-bold text-white">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl">
+            <h2 className="text-4xl font-bold text-center mb-8">{isLogin ? "Welcome Back" : "Join FamilyShare"}</h2>
+            <form onSubmit={handleAuth} className="space-y-6">
+              <input required type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-blue-500 outline-none" />
+              <input required type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-4 border-2 border-gray-300 rounded-xl text-lg focus:border-blue-500 outline-none" />
+              <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white py-5 rounded-xl font-bold text-xl hover:shadow-xl transition">
                 {isLogin ? "Log In" : "Create Account"}
               </button>
             </form>
-            <button onClick={() => setShowAuth(false)} className="mt-6 w-full text-gray-600">
+            <button onClick={() => setShowAuth(false)} className="mt-6 text-gray-600 w-full text-center font-medium">
               Cancel
             </button>
           </div>
